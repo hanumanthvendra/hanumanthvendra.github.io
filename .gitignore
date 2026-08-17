@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+._*
+
+# Editors
+.vscode/
+.idea/
+
+# Logs / temp
+*.log
+Thumbs.db
+
+# local photo backup (not published)
+assets/images/venkata-original.jpg
