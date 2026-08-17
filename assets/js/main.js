@@ -18,11 +18,8 @@
   }
   var saved = null;
   try { saved = localStorage.getItem("theme"); } catch (e) {}
-  if (saved === "light" || saved === "dark") {
-    applyTheme(saved);
-  } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
-    applyTheme("light");
-  }
+  // Default to dark when the visitor has no saved preference; their toggle choice persists.
+  applyTheme(saved === "light" || saved === "dark" ? saved : "dark");
   if (toggle) {
     toggle.addEventListener("click", function () {
       var next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
