@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+
+<title>Bounded power — MCP FinOps guardrails | Venkata Hanumanth Vendra</title>
+<meta name="description" content="An AI that right-sizes a live Kubernetes cluster over MCP — and a server-side policy layer that refuses protected-prod and sub-floor cuts, even when the model asks. Typed tools, dry-run defaults, an audit trail.">
+<meta name="author" content="Venkata Hanumanth Vendra">
+<link rel="canonical" href="https://hanumanthvendra.github.io/mcp-finops-guardrails/">
+<meta name="robots" content="index, follow">
+
+<!-- Open Graph / social. NOTE: swap og:image for a 1200x630 screenshot of the diagram
+     (e.g. /assets/images/og-mcp-finops.png) for a subject-specific LinkedIn preview. -->
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Venkata Hanumanth Vendra">
+<meta property="og:title" content="Bounded power: an AI that right-sizes your cluster — and a platform that won't let it break prod">
+<meta property="og:description" content="A typed MCP interface to a live Kubernetes cluster with the safety logic server-side. The AI decides what to change; the platform decides what it's allowed to do — and refuses the rest.">
+<meta property="og:url" content="https://hanumanthvendra.github.io/mcp-finops-guardrails/">
+<meta property="og:image" content="https://hanumanthvendra.github.io/assets/images/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Bounded power — MCP FinOps guardrails">
+<meta name="twitter:description" content="An AI with bounded power: typed MCP tools, a server-side policy gate that refuses protected-prod and sub-floor cuts, dry-run defaults, an audit trail.">
+<meta name="twitter:image" content="https://hanumanthvendra.github.io/assets/images/og-image.png">
+
+<meta name="theme-color" content="#0a1418">
+<link rel="icon" href="/assets/images/favicon.svg" type="image/svg+xml">
+
+<!-- Set theme before paint to avoid a flash of the wrong theme -->
+<script>
+(function(){try{var t=localStorage.getItem('theme');
+if(t!=='light'&&t!=='dark')t='dark';
+document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
+
+<style>
+  html { -webkit-text-size-adjust: 100%; }
+  img, svg { max-width: 100%; }
+
+  .topnav {
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: clamp(18px, 3vw, 28px) clamp(18px, 4vw, 40px) 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  .topnav .brand {
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: color .15s ease;
+  }
+  .topnav .brand:hover, .topnav .brand:focus-visible { color: var(--accent); }
+  .topnav .brand .ar { color: var(--faint); }
+  .theme-toggle {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    border-radius: 999px;
+    padding: 7px 14px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .theme-toggle:hover, .theme-toggle:focus-visible {
+    color: var(--ink);
+    border-color: var(--hair-strong);
+  }
+  .theme-toggle .ic { font-size: 13px; line-height: 1; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<nav class="topnav" aria-label="Site">
+  <a class="brand" href="/"><span class="ar">←</span> Venkata Hanumanth Vendra</a>
+  <button class="theme-toggle" id="themeBtn" type="button" aria-label="Toggle light or dark theme">
+    <span class="ic" id="themeIc">☾</span><span id="themeLbl">Dark</span>
+  </button>
+</nav>
+<style>
+  :root {
+    /* dark is the primary world; tokens below are redefined per-theme */
+    --ground: #0a1418;
+    --ground-2: #081115;
+    --panel: #102028;
+    --panel-2: #16303a;
+    --hair: rgba(120, 190, 180, 0.18);
+    --hair-strong: rgba(120, 190, 180, 0.34);
+    --ink: #e8f4f1;
+    --muted: #8aa6a2;
+    --faint: #5f7a76;
+    --accent: #35d0b6;       /* phosphor teal — the flow */
+    --accent-dim: rgba(53, 208, 182, 0.14);
+    --allow: #5fd08a;        /* semantic: allowed */
+    --allow-dim: rgba(95, 208, 138, 0.14);
+    --refuse: #ff8a3d;       /* semantic: refused — the one bold note */
+    --refuse-dim: rgba(255, 138, 61, 0.15);
+    --grid: rgba(120, 190, 180, 0.06);
+    --shadow: rgba(0, 0, 0, 0.45);
+
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
+    --sans: -apple-system, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #eef3f1;
+      --ground-2: #e4ebe8;
+      --panel: #ffffff;
+      --panel-2: #f2f7f5;
+      --hair: rgba(16, 137, 122, 0.20);
+      --hair-strong: rgba(16, 137, 122, 0.34);
+      --ink: #0d1c1f;
+      --muted: #4f6764;
+      --faint: #7d918e;
+      --accent: #10897a;
+      --accent-dim: rgba(16, 137, 122, 0.12);
+      --allow: #1e9b5c;
+      --allow-dim: rgba(30, 155, 92, 0.12);
+      --refuse: #d6552b;
+      --refuse-dim: rgba(214, 85, 43, 0.12);
+      --grid: rgba(16, 137, 122, 0.07);
+      --shadow: rgba(20, 50, 45, 0.12);
+    }
+  }
+  /* explicit toggle must win in both directions */
+  :root[data-theme="dark"] {
+    --ground: #0a1418; --ground-2: #081115; --panel: #102028; --panel-2: #16303a;
+    --hair: rgba(120,190,180,.18); --hair-strong: rgba(120,190,180,.34);
+    --ink: #e8f4f1; --muted: #8aa6a2; --faint: #5f7a76;
+    --accent: #35d0b6; --accent-dim: rgba(53,208,182,.14);
+    --allow: #5fd08a; --allow-dim: rgba(95,208,138,.14);
+    --refuse: #ff8a3d; --refuse-dim: rgba(255,138,61,.15);
+    --grid: rgba(120,190,180,.06); --shadow: rgba(0,0,0,.45);
+  }
+  :root[data-theme="light"] {
+    --ground: #eef3f1; --ground-2: #e4ebe8; --panel: #fff; --panel-2: #f2f7f5;
+    --hair: rgba(16,137,122,.20); --hair-strong: rgba(16,137,122,.34);
+    --ink: #0d1c1f; --muted: #4f6764; --faint: #7d918e;
+    --accent: #10897a; --accent-dim: rgba(16,137,122,.12);
+    --allow: #1e9b5c; --allow-dim: rgba(30,155,92,.12);
+    --refuse: #d6552b; --refuse-dim: rgba(214,85,43,.12);
+    --grid: rgba(16,137,122,.07); --shadow: rgba(20,50,45,.12);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 600px at 50% -10%, var(--accent-dim), transparent 60%),
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 32px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 32px 100%,
+      var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+
+  .wrap {
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: clamp(28px, 5vw, 64px) clamp(18px, 4vw, 40px) 72px;
+  }
+
+  /* ---------- header ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 22px;
+  }
+  .eyebrow::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--hair-strong), transparent);
+  }
+  h1 {
+    font-size: clamp(30px, 5.4vw, 52px);
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    margin: 0 0 20px;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+  h1 .em { color: var(--accent); }
+  h1 .rf { color: var(--refuse); }
+  .lede {
+    font-size: clamp(16px, 2vw, 19px);
+    color: var(--muted);
+    max-width: 62ch;
+    margin: 0;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- diagram frame ---------- */
+  .diagram {
+    margin: 40px 0 16px;
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    background:
+      linear-gradient(180deg, var(--panel), var(--ground-2));
+    box-shadow: 0 24px 60px -30px var(--shadow);
+    overflow: hidden;
+  }
+  .diagram-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--hair);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+    flex-wrap: wrap;
+  }
+  .dots-tl { display: inline-flex; gap: 7px; }
+  .dots-tl i { width: 9px; height: 9px; border-radius: 50%; background: var(--hair-strong); display: inline-block; }
+  .legend { display: inline-flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend b { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .svg-scroll { overflow-x: auto; padding: 8px clamp(6px, 2vw, 20px) 18px; }
+  svg.arch { display: block; width: 100%; min-width: 640px; height: auto; }
+
+  /* ---------- svg element styling ---------- */
+  .node { fill: var(--panel-2); stroke: var(--hair-strong); stroke-width: 1; }
+  .node-lg { fill: var(--panel); stroke: var(--hair-strong); }
+  .gate { fill: var(--refuse-dim); stroke: var(--refuse); stroke-width: 1.6; }
+  .chip { fill: var(--panel); stroke: var(--hair); stroke-width: 1; }
+  .chip-apply { fill: var(--accent-dim); stroke: var(--accent); stroke-width: 1.4; }
+  .prod-box { fill: var(--refuse-dim); stroke: var(--refuse); stroke-width: 1.3; }
+  .stg-box { fill: var(--allow-dim); stroke: var(--allow); stroke-width: 1.3; }
+
+  text { font-family: var(--mono); fill: var(--ink); }
+  .t-title { font-size: 14px; font-weight: 600; }
+  .t-sub { font-size: 11px; fill: var(--muted); }
+  .t-chip { font-size: 11px; fill: var(--ink); }
+  .t-chip-mut { font-size: 11px; fill: var(--accent); font-weight: 600; }
+  .t-tag { font-size: 9px; letter-spacing: 0.12em; }
+  .t-gate { font-size: 13px; font-weight: 700; fill: var(--refuse); letter-spacing: 0.08em; }
+  .t-gate-sub { font-size: 10.5px; fill: var(--muted); }
+  .t-rail { font-size: 12px; fill: var(--faint); letter-spacing: 0.28em; }
+  .t-verdict-ok { font-size: 11px; font-weight: 700; fill: var(--allow); letter-spacing: 0.06em; }
+  .t-verdict-no { font-size: 11px; font-weight: 700; fill: var(--refuse); letter-spacing: 0.06em; }
+
+  .wire { fill: none; stroke: var(--hair-strong); stroke-width: 1.4; }
+  .wire-allow { fill: none; stroke: var(--allow); stroke-width: 1.5; opacity: 0.75; }
+  .wire-refuse { fill: none; stroke: var(--refuse); stroke-width: 1.5; stroke-dasharray: 5 5; opacity: 0.8; }
+  .wire-audit { fill: none; stroke: var(--faint); stroke-width: 1; stroke-dasharray: 2 6; opacity: 0.6; }
+
+  /* animated flowing dash on the main wires */
+  .flow { stroke-dasharray: 4 10; animation: dash 1.1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -28; } }
+
+  /* travelling dots via offset-path */
+  .dot { r: 4px; }
+  .dot-teal { fill: var(--accent); }
+  .dot-allow { fill: var(--allow); }
+  .dot-refuse { fill: var(--refuse); }
+  .dot-audit { fill: var(--faint); r: 2.6px; }
+  .move { animation: travel 2.4s linear infinite; }
+  @keyframes travel { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+  /* refused pulse: races toward prod, hits the fence, dies */
+  .bounce { animation: bounce 2.2s cubic-bezier(.5,0,.9,.4) infinite; }
+  @keyframes bounce {
+    0%   { offset-distance: 0%;  opacity: 0; }
+    12%  { opacity: 1; }
+    62%  { offset-distance: 92%; opacity: 1; }
+    72%  { offset-distance: 92%; opacity: 0; }
+    100% { offset-distance: 92%; opacity: 0; }
+  }
+  .refuse-badge { animation: throb 2.2s ease-in-out infinite; transform-origin: center; }
+  @keyframes throb { 0%,55%,100% { opacity: .35; } 66% { opacity: 1; } }
+
+  /* ---------- rules ---------- */
+  .section-h {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 52px 0 6px;
+  }
+  .section-lede { color: var(--muted); margin: 0 0 22px; max-width: 60ch; font-size: 15px; }
+  .section-lede code { font-family: var(--mono); color: var(--ink); font-size: 0.92em; }
+
+  .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .rule {
+    border: 1px solid var(--hair);
+    border-radius: 13px;
+    background: var(--panel);
+    padding: 20px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .rule::before {
+    content: "";
+    position: absolute; inset: 0 auto 0 0; width: 3px;
+    background: var(--refuse);
+  }
+  .rule .rk {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .rule h3 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .rule p { margin: 0; color: var(--muted); font-size: 13.5px; }
+  .thresh {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink);
+    background: var(--panel-2); border: 1px solid var(--hair);
+    border-radius: 8px; padding: 9px 11px; line-height: 1.6;
+  }
+  .thresh .v { color: var(--accent); }
+  .verdict-pill {
+    align-self: flex-start; margin-top: auto;
+    font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--refuse); background: var(--refuse-dim);
+    border: 1px solid var(--refuse); border-radius: 999px;
+    padding: 4px 11px;
+  }
+
+  /* ---------- ledger ---------- */
+  .ledger {
+    border: 1px solid var(--hair);
+    border-radius: 13px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .ledger-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-bottom: 1px solid var(--hair);
+    font-family: var(--mono); font-size: 12px; color: var(--faint);
+    letter-spacing: 0.06em;
+  }
+  .ledger-head .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 var(--accent); animation: pulse 2s ease-out infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent-dim); } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+  .row {
+    display: grid;
+    grid-template-columns: 34px 1fr auto;
+    gap: 14px;
+    align-items: baseline;
+    padding: 15px 16px;
+    border-top: 1px solid var(--hair);
+  }
+  .row:first-of-type { border-top: none; }
+  .row .n { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .row .call { font-family: var(--mono); font-size: 13px; color: var(--ink); word-break: break-word; }
+  .row .reason { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .row .reason .money { color: var(--allow); font-variant-numeric: tabular-nums; }
+  .verdict {
+    justify-self: end;
+    font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+  }
+  .v-read { color: var(--accent); background: var(--accent-dim); border: 1px solid var(--hair-strong); }
+  .v-dry { color: var(--allow); background: var(--allow-dim); border: 1px solid var(--allow); }
+  .v-refuse { color: var(--refuse); background: var(--refuse-dim); border: 1px solid var(--refuse); }
+
+  /* ---------- thesis / footer ---------- */
+  .thesis {
+    margin-top: 52px;
+    border: 1px solid var(--hair);
+    border-left: 3px solid var(--accent);
+    border-radius: 13px;
+    background: linear-gradient(180deg, var(--panel), var(--ground-2));
+    padding: 26px 26px 24px;
+  }
+  .thesis p { margin: 0; font-size: clamp(17px, 2.2vw, 21px); line-height: 1.45; letter-spacing: -0.01em; max-width: 54ch; }
+  .thesis .k { color: var(--accent); font-weight: 600; }
+  .thesis .rk { color: var(--refuse); font-weight: 600; }
+  .run {
+    margin-top: 18px;
+    font-family: var(--mono); font-size: 13px;
+    background: var(--ground-2); border: 1px solid var(--hair);
+    border-radius: 9px; padding: 14px 16px; color: var(--muted);
+    overflow-x: auto;
+  }
+  .run .p { color: var(--accent); user-select: none; }
+  .run .c { color: var(--ink); }
+  .run .cm { color: var(--faint); }
+  .run div { white-space: nowrap; }
+
+  footer {
+    margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--hair);
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 11.5px; color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+  footer .tags { color: var(--muted); }
+
+  @media (max-width: 720px) {
+    .rules { grid-template-columns: 1fr; }
+    .row { grid-template-columns: 26px 1fr; }
+    .verdict { grid-column: 2; justify-self: start; margin-top: 6px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flow, .move, .bounce, .refuse-badge, .ledger-head .pulse { animation: none !important; }
+    .move { offset-distance: 60%; }
+    .bounce { offset-distance: 55%; opacity: 1; }
+    .refuse-badge { opacity: 1; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">MCP · Kubernetes · FinOps</p>
+    <h1>Bounded power: an AI that right-sizes your cluster — and a platform that <span class="rf">won't let it</span> break prod.</h1>
+    <p class="lede">The AI decides <strong>what</strong> to change. The platform decides what it's <strong>allowed</strong> to do — server-side, where the model can't route around it — and <strong>refuses the rest, even when asked directly.</strong></p>
+  </header>
+
+  <!-- ============== ANIMATED ARCHITECTURE ============== -->
+  <div class="diagram">
+    <div class="diagram-top">
+      <span class="dots-tl"><i></i><i></i><i></i></span>
+      <span class="legend">
+        <span><b style="background:var(--accent)"></b> request flow</span>
+        <span><b style="background:var(--allow)"></b> allowed</span>
+        <span><b style="background:var(--refuse)"></b> refused</span>
+        <span><b style="background:var(--faint)"></b> audit</span>
+      </span>
+    </div>
+
+    <div class="svg-scroll">
+      <svg class="arch" viewBox="0 0 980 660" role="img"
+           aria-label="Architecture: Claude calls typed MCP tools; the mutating apply call passes through a server-side policy gate that allows safe changes to staging, refuses protected prod and sub-floor cuts, and logs every attempt to an audit rail.">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- ===== WIRES (drawn first, under nodes) ===== -->
+        <!-- Claude -> server -->
+        <path class="wire flow" style="color:var(--accent)" d="M470,92 L470,150" marker-end="url(#ah)" stroke="var(--accent)"/>
+        <!-- apply chip -> gate -->
+        <path class="wire flow" style="color:var(--refuse)" d="M470,300 L470,352" marker-end="url(#ah)" stroke="var(--accent)"/>
+        <!-- gate -> staging (allowed) -->
+        <path class="wire-allow" id="pAllow" d="M406,438 C360,486 320,500 322,540" marker-end="url(#ah)" style="color:var(--allow)"/>
+        <!-- gate -> prod (refused / blocked) -->
+        <path class="wire-refuse" id="pRefuse" d="M534,438 C588,486 632,500 636,540" style="color:var(--refuse)"/>
+        <!-- audit feeds -->
+        <path class="wire-audit" id="pAudit1" d="M600,395 L858,300"/>
+        <path class="wire-audit" id="pAudit2" d="M540,428 L858,378"/>
+        <path class="wire-audit" id="pAudit3" d="M636,556 C760,556 840,500 858,452"/>
+
+        <!-- ===== AUDIT RAIL ===== -->
+        <rect class="node-lg" x="858" y="150" width="86" height="430" rx="12"/>
+        <text class="t-rail" x="895" y="470" transform="rotate(-90 895 470)" text-anchor="middle">AUDIT LOG</text>
+        <text class="t-sub" x="901" y="176" text-anchor="middle">append</text>
+        <text class="t-sub" x="901" y="190" text-anchor="middle">only</text>
+
+        <!-- ===== CLAUDE CLIENT ===== -->
+        <rect class="node" x="352" y="32" width="236" height="60" rx="11"/>
+        <text class="t-title" x="470" y="58" text-anchor="middle">Claude / MCP client</text>
+        <text class="t-sub" x="470" y="76" text-anchor="middle">decides WHAT to change</text>
+
+        <!-- ===== MCP SERVER PANEL ===== -->
+        <rect class="node-lg" x="92" y="150" width="736" height="150" rx="14"/>
+        <text class="t-title" x="112" y="176" text-anchor="start">finops-copilot · MCP server</text>
+        <text class="t-tag" x="716" y="176" text-anchor="end" fill="var(--faint)">THE ONLY THING THAT TOUCHES THE CLUSTER</text>
+
+        <!-- read-only tool chips -->
+        <g>
+          <rect class="chip" x="112" y="192" width="132" height="34" rx="8"/>
+          <text class="t-chip" x="178" y="213" text-anchor="middle">list_workloads</text>
+          <rect class="chip" x="252" y="192" width="132" height="34" rx="8"/>
+          <text class="t-chip" x="318" y="213" text-anchor="middle">estimate_cost</text>
+          <rect class="chip" x="392" y="192" width="170" height="34" rx="8"/>
+          <text class="t-chip" x="477" y="213" text-anchor="middle">recommend_rightsizing</text>
+          <rect class="chip" x="570" y="192" width="120" height="34" rx="8"/>
+          <text class="t-chip" x="630" y="213" text-anchor="middle">get_audit_log</text>
+          <rect class="chip" x="698" y="192" width="118" height="34" rx="8"/>
+          <text class="t-chip" x="757" y="213" text-anchor="middle">list_namespaces</text>
+        </g>
+        <text class="t-tag" x="112" y="248" fill="var(--faint)">READ-ONLY · SAFE</text>
+
+        <!-- mutating tool -->
+        <rect class="chip-apply" x="322" y="256" width="296" height="36" rx="9"/>
+        <text class="t-chip-mut" x="470" y="279" text-anchor="middle">apply_rightsizing(  dry_run=True  )</text>
+        <text class="t-tag" x="628" y="248" text-anchor="end" fill="var(--accent)">↓ THE ONE MUTATING TOOL</text>
+
+        <!-- ===== POLICY GATE ===== -->
+        <polygon class="gate" points="470,346 566,376 566,438 470,468 374,438 374,376"/>
+        <text class="t-gate" x="470" y="398" text-anchor="middle">POLICY GATE</text>
+        <text class="t-gate-sub" x="470" y="416" text-anchor="middle">policy.py · evaluate_apply()</text>
+        <text class="t-gate-sub" x="470" y="430" text-anchor="middle">runs BEFORE anything happens</text>
+
+        <!-- ===== CLUSTER ===== -->
+        <rect class="stg-box" x="230" y="540" width="184" height="72" rx="11"/>
+        <text class="t-title" x="322" y="566" text-anchor="middle" fill="var(--allow)">namespace: staging</text>
+        <text class="t-sub" x="322" y="584" text-anchor="middle">3 workloads · 1–4% CPU</text>
+        <text class="t-verdict-ok" x="322" y="602" text-anchor="middle">✓ CHANGE APPLIED</text>
+
+        <rect class="prod-box" x="544" y="540" width="184" height="72" rx="11"/>
+        <text class="t-title" x="636" y="566" text-anchor="middle" fill="var(--refuse)">namespace: prod</text>
+        <text class="t-sub" x="636" y="584" text-anchor="middle">🔒 protected</text>
+        <g class="refuse-badge">
+          <text class="t-verdict-no" x="636" y="602" text-anchor="middle">✕ REFUSED</text>
+        </g>
+
+        <text class="t-sub" x="479" y="638" text-anchor="middle" fill="var(--faint)">kind cluster (swap for EKS / AKS / GKE — design unchanged)</text>
+
+        <!-- ===== TRAVELLING DOTS ===== -->
+        <circle class="dot dot-teal move" style="offset-path:path('M470,92 L470,150');animation-delay:0s"/>
+        <circle class="dot dot-teal move" style="offset-path:path('M470,92 L470,150');animation-delay:-1.2s"/>
+        <circle class="dot dot-teal move" style="offset-path:path('M470,300 L470,352');animation-delay:-.4s"/>
+        <circle class="dot dot-teal move" style="offset-path:path('M470,300 L470,352');animation-delay:-1.6s"/>
+        <circle class="dot dot-allow move" style="offset-path:path('M406,438 C360,486 320,500 322,540');animation-delay:-.2s"/>
+        <circle class="dot dot-allow move" style="offset-path:path('M406,438 C360,486 320,500 322,540');animation-delay:-1.4s"/>
+        <circle class="dot dot-refuse bounce" style="offset-path:path('M534,438 C588,486 632,500 636,540');animation-delay:0s"/>
+        <circle class="dot dot-audit move" style="offset-path:path('M600,395 L858,300');animation-delay:-.6s;animation-duration:3.4s"/>
+        <circle class="dot dot-audit move" style="offset-path:path('M540,428 L858,378');animation-delay:-2s;animation-duration:3.4s"/>
+        <circle class="dot dot-audit move" style="offset-path:path('M636,556 C760,556 840,500 858,452');animation-delay:-1s;animation-duration:3.8s"/>
+      </svg>
+    </div>
+  </div>
+  <p class="section-lede" style="margin-top:14px">Every <code>apply</code> — allowed, refused, or dry-run — is checked against the policy first and appended to the audit log. Reads never touch it.</p>
+
+  <!-- ============== THE THREE RULES ============== -->
+  <p class="section-h">Three rules the model can't argue with</p>
+  <p class="section-lede">Pure, unit-tested policy in <code>finops/policy.py</code>. Not a prompt, not a suggestion — the server returns the refusal and there is no phrasing that talks it out of one.</p>
+
+  <div class="rules">
+    <div class="rule">
+      <span class="rk">01 · scope</span>
+      <h3>Protected namespaces</h3>
+      <p>Some namespaces are simply off-limits — a hard stop before any other check runs.</p>
+      <div class="thresh"><span class="v">prod</span>, kube-system,<br>kube-public, kube-node-lease,<br><span class="v">default</span></div>
+      <span class="verdict-pill">refuses to mutate</span>
+    </div>
+    <div class="rule">
+      <span class="rk">02 · floor</span>
+      <h3>Resource floors</h3>
+      <p>A right-sizing may approach the floor but never cross it — no scaling a service into the ground.</p>
+      <div class="thresh">cpu&nbsp;&nbsp;&nbsp;&nbsp;≥ <span class="v">50m</span><br>memory&nbsp;≥ <span class="v">64Mi</span><br>replicas ≥ <span class="v">1</span></div>
+      <span class="verdict-pill">refuses below floor</span>
+    </div>
+    <div class="rule">
+      <span class="rk">03 · rate</span>
+      <h3>Max single-step cut</h3>
+      <p>Big reductions must happen incrementally and observably — never in one confident leap.</p>
+      <div class="thresh">reduction / apply<br>≤ <span class="v">90%</span> of current<br><span style="color:var(--faint)">(reduce in stages)</span></div>
+      <span class="verdict-pill">refuses the leap</span>
+    </div>
+  </div>
+
+  <!-- ============== THE DEMO AS AN AUDIT LOG ============== -->
+  <p class="section-h">The demo, read back from the audit log</p>
+  <p class="section-lede">One command, no API key. A deterministic mock drives the <em>same</em> MCP server and the <em>same</em> guardrails as the real Claude path — so it's CI-safe.</p>
+
+  <div class="ledger">
+    <div class="ledger-head"><span class="pulse"></span> audit.log — 5 attempts, every one recorded with its reason</div>
+
+    <div class="row">
+      <span class="n">01</span>
+      <div>
+        <div class="call">estimate_cost(ns="staging")</div>
+        <div class="reason">Baseline: staging costs <span class="money">~$138/mo</span> at current requests.</div>
+      </div>
+      <span class="verdict v-read">read · safe</span>
+    </div>
+
+    <div class="row">
+      <span class="n">02</span>
+      <div>
+        <div class="call">recommend_rightsizing(ns="staging")</div>
+        <div class="reason">3 workloads sitting at 1–4% CPU → proposes CPU + replica cuts worth <span class="money">~$102/mo (73%)</span>.</div>
+      </div>
+      <span class="verdict v-read">read · safe</span>
+    </div>
+
+    <div class="row">
+      <span class="n">03</span>
+      <div>
+        <div class="call">apply_rightsizing(ns="staging", dry_run=True)</div>
+        <div class="reason">Shows the exact diff and dollar saving first. The safe thing is the default thing.</div>
+      </div>
+      <span class="verdict v-dry">dry-run</span>
+    </div>
+
+    <div class="row">
+      <span class="n">04</span>
+      <div>
+        <div class="call">apply_rightsizing(ns="prod", …)</div>
+        <div class="reason">“namespace 'prod' is protected — the copilot is not permitted to modify workloads here.” The AI asked; the guardrail said no.</div>
+      </div>
+      <span class="verdict v-refuse">refused</span>
+    </div>
+
+    <div class="row">
+      <span class="n">05</span>
+      <div>
+        <div class="call">apply_rightsizing(ns="staging", cpu_m=10)</div>
+        <div class="reason">“cpu 10m is below the floor of 50m.” Trying to slash a request to almost nothing — blocked.</div>
+      </div>
+      <span class="verdict v-refuse">refused</span>
+    </div>
+  </div>
+
+  <!-- ============== THESIS ============== -->
+  <div class="thesis">
+    <p>Everyone's racing to give AI agents <span class="k">more</span> power. The harder work is giving them <span class="k">bounded</span> power — real actions inside a fence the model <span class="rk">can't climb</span>. The intelligence is Claude's. The judgment about what's safe to run stays the platform's.</p>
+    <div class="run">
+      <div><span class="cm"># kind + a ~120-line MCP server + Claude — offline by default</span></div>
+      <div><span class="p">$</span> <span class="c">make up</span>&nbsp;&nbsp;&nbsp;<span class="cm"># seed a cluster with deliberate waste</span></div>
+      <div><span class="p">$</span> <span class="c">make demo</span>&nbsp;<span class="cm"># the copilot finds &amp; cuts it — no API key needed</span></div>
+    </div>
+  </div>
+
+  <footer>
+    <span>finops-copilot · MCP guardrails for agentic FinOps</span>
+    <span class="tags">#MCP #Kubernetes #PlatformEngineering #FinOps</span>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('themeBtn');
+  var ic = document.getElementById('themeIc');
+  var lbl = document.getElementById('themeLbl');
+  function paint(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    ic.textContent = t === 'dark' ? '☾' : '☀';
+    lbl.textContent = t === 'dark' ? 'Dark' : 'Light';
+    btn.setAttribute('aria-pressed', t === 'dark' ? 'true' : 'false');
+  }
+  var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  paint(cur);
+  btn.addEventListener('click', function () {
+    cur = cur === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('theme', cur); } catch (e) {}
+    paint(cur);
+  });
+})();
+</script>
+</body>
+</html>
