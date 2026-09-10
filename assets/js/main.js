@@ -46,7 +46,7 @@
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenu(); });
   }
 
-  /* ---------- Reveal on scroll ---------- */
+  /* Reveal on scroll — skip already-visible hero (no .reveal there) */
   var revealEls = document.querySelectorAll(".reveal");
   if (reduceMotion || !("IntersectionObserver" in window)) {
     revealEls.forEach(function (el) { el.classList.add("in"); });
@@ -55,7 +55,7 @@
       entries.forEach(function (en) {
         if (en.isIntersecting) { en.target.classList.add("in"); revObs.unobserve(en.target); }
       });
-    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+    }, { rootMargin: "0px 0px -6% 0px", threshold: 0.05 });
     revealEls.forEach(function (el) { revObs.observe(el); });
   }
 
