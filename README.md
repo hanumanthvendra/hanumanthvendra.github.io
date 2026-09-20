@@ -13,6 +13,7 @@ Static site (HTML + CSS + vanilla JS), no build step, no backend — hosted **fr
 index.html                     # the whole page (all sections)
 gitops-argocd-helm/            # motion diagram: Jenkins → Helm → Argo CD → Rollouts
 terraform-ci-jenkins/          # motion diagram: Terraform CI · OPA · approve → apply
+istio-eks-auto-mode/           # motion diagram: Istio sidecar request flow on EKS Auto Mode
 mcp-finops-guardrails/         # motion diagram: MCP FinOps policy gate
 assets/
   css/style.css                # styles — dark/light, responsive

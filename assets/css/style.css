@@ -166,7 +166,7 @@ a{color:inherit;text-decoration:none}
   background:color-mix(in srgb,var(--panel) 80%,transparent)}
 .demos__label{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--accent);margin-bottom:12px}
-.demos__row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.demos__row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .demo{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:10px;
   border:1px solid var(--line);background:var(--panel-2);transition:border-color .2s,transform .2s}
 .demo:hover{border-color:var(--accent);transform:translateY(-2px)}
