@@ -11,6 +11,8 @@ Static site (HTML + CSS + vanilla JS), no build step, no backend — hosted **fr
 
 ```
 index.html                     # the whole page (all sections)
+gitops-argocd-helm/            # motion diagram: Jenkins → Helm → Argo CD → Rollouts
+mcp-finops-guardrails/         # motion diagram: MCP FinOps policy gate
 assets/
   css/style.css                # styles — dark/light, responsive
   js/main.js                   # theme, nav, scroll-spy, reveal, video

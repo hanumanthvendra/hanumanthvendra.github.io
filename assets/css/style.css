@@ -162,6 +162,20 @@ a{color:inherit;text-decoration:none}
 .tl__points strong{color:var(--ink);font-weight:650}
 
 /* ============ CARDS (projects) ============ */
+.demos{margin:28px 0 8px;padding:18px 20px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:color-mix(in srgb,var(--panel) 80%,transparent)}
+.demos__label{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:12px}
+.demos__row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.demo{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:10px;
+  border:1px solid var(--line);background:var(--panel-2);transition:border-color .2s,transform .2s}
+.demo:hover{border-color:var(--accent);transform:translateY(-2px)}
+.demo__k{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2)}
+.demo__t{font-size:15px;font-weight:650;color:var(--ink)}
+.demo__d{font-size:13px;color:var(--ink-2);line-height:1.45}
+@media (max-width:640px){.demos__row{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){.demo:hover{transform:none}}
+
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:var(--gap);margin-top:36px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px;
   transition:transform .2s,border-color .2s,box-shadow .2s;position:relative;overflow:hidden}
