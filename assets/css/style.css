@@ -189,6 +189,7 @@ a{color:inherit;text-decoration:none}
 .card__dl dt:first-child{margin-top:0}
 .card__dl dd{font-size:14.5px;color:var(--ink-2);text-align:justify;-webkit-hyphens:auto;hyphens:auto}
 .card__dl dd strong{color:var(--ink);font-weight:650}
+.card__dl dd a{color:var(--accent);font-weight:600}
 @media (prefers-reduced-motion: reduce){ .card:hover{transform:none} }
 
 /* ============ SKILLS ============ */

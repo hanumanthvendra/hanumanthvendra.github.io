@@ -315,6 +315,11 @@ document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
     <div class="demos reveal" aria-label="Interactive architecture diagrams">
       <p class="demos__label">Live motion diagrams</p>
       <div class="demos__row">
+        <a class="demo" href="/gitops-release-guardian/">
+          <span class="demo__k">GitOps</span>
+          <span class="demo__t">AI release guardian</span>
+          <span class="demo__d">Evidence-backed risk review — Argo CD still deploys</span>
+        </a>
         <a class="demo" href="/gitops-argocd-helm/">
           <span class="demo__k">GitOps</span>
           <span class="demo__t">CI/CD · Helm · Argo CD · Rollouts</span>
@@ -340,15 +345,20 @@ document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
           <span class="demo__t">On-call incident copilot</span>
           <span class="demo__d">Retrieve → cite the runbook — or refuse when unsure</span>
         </a>
-        <a class="demo" href="/gitops-release-guardian/">
-          <span class="demo__k">GitOps</span>
-          <span class="demo__t">AI release guardian</span>
-          <span class="demo__d">Evidence-backed risk review — Argo CD still deploys</span>
-        </a>
       </div>
     </div>
 
     <div class="cards" role="list">
+
+      <article class="card reveal" role="listitem">
+        <h3 class="card__t">AI GitOps Release Guardian</h3>
+        <dl class="card__dl">
+          <dt>Challenge</dt><dd>A Terraform/Helm PR can cut memory, open a public load balancer, and widen IAM while still looking like “just values.” Scanners fire; reviewers still have to stitch the story.</dd>
+          <dt>Solution</dt><dd>A read-only guardian reviews the diff plus Trivy/policy artifacts, cites files and check IDs, and suggests a safer patch. A human merges; Argo CD deploys. The model never applies.</dd>
+          <dt>Stack</dt><dd>Jenkins · Terraform · Helm/Kubernetes · Trivy · Conftest · Argo CD · LLM narrator</dd>
+          <dt>Impact</dt><dd><strong>Evidence-backed BLOCK</strong> on the demo PR (OOM, public LB, IAM wildcards) · patch re-review goes green. <a href="/gitops-release-guardian/">Diagram</a> · <a href="https://github.com/hanumanthvendra/ai-gitops-release-guardian" rel="noopener">Repo</a></dd>
+        </dl>
+      </article>
 
       <article class="card reveal" role="listitem">
         <h3 class="card__t">Multi-Region Cloud Migration</h3>
@@ -468,7 +478,7 @@ document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
       <div class="skill reveal" role="listitem"><h3>Observability</h3><p>Grafana · CloudWatch · Datadog · Splunk</p></div>
       <div class="skill reveal" role="listitem"><h3>FinOps</h3><p>ARM64 · Spot/Fleet · Right-sizing · Cost governance</p></div>
       <div class="skill reveal" role="listitem"><h3>Resilience</h3><p>Multi-Region · DR/BCP · Velero · &lt;30min RTO</p></div>
-      <div class="skill reveal" role="listitem"><h3>AI in Operations</h3><p>Agentic AI · AI-assisted security · Intelligent incident response</p></div>
+      <div class="skill reveal" role="listitem"><h3>AI in Operations</h3><p>Agentic AI · GitOps change review · AI-assisted security · Intelligent incident response</p></div>
     </div>
   </div>
 </section>
