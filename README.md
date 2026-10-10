@@ -16,6 +16,7 @@ terraform-ci-jenkins/          # motion diagram: Terraform CI · OPA · approve 
 istio-eks-auto-mode/           # motion diagram: Istio sidecar request flow on EKS Auto Mode
 mcp-finops-guardrails/         # motion diagram: MCP FinOps policy gate
 rag-incident-copilot/          # motion diagram: RAG retrieve → cite or refuse
+gitops-release-guardian/       # motion diagram: AI GitOps risk review → human → Argo CD
 assets/
   css/style.css                # styles — dark/light, responsive
   js/main.js                   # theme, nav, scroll-spy, reveal, video
