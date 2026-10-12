@@ -320,6 +320,11 @@ document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
           <span class="demo__t">AI release guardian</span>
           <span class="demo__d">Evidence-backed risk review — Argo CD still deploys</span>
         </a>
+        <a class="demo" href="/cicd-failure-triage/">
+          <span class="demo__k">CI/CD</span>
+          <span class="demo__t">AI Jenkins failure triage</span>
+          <span class="demo__d">Logs + tests + diff → cited cause and a patch</span>
+        </a>
         <a class="demo" href="/gitops-argocd-helm/">
           <span class="demo__k">GitOps</span>
           <span class="demo__t">CI/CD · Helm · Argo CD · Rollouts</span>
@@ -349,6 +354,16 @@ document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
     </div>
 
     <div class="cards" role="list">
+
+      <article class="card reveal" role="listitem">
+        <h3 class="card__t">AI CI/CD Failure Triage</h3>
+        <dl class="card__dl">
+          <dt>Challenge</dt><dd>A red Jenkins job leaves an engineer stitching a console log, JUnit results, and a PR diff by hand.</dd>
+          <dt>Solution</dt><dd>A read-only assistant parses those three artifacts, cites the log lines and tests, and drafts a patch. A human applies it and retriggers Jenkins — the agent never rebuilds or deploys.</dd>
+          <dt>Stack</dt><dd>Jenkins · Python · Docker · kubeconform · JUnit · LLM narrator</dd>
+          <dt>Impact</dt><dd>Demo PR-47: Dockerfile COPY typo + <code>replicas: three</code> → cited causes → patch re-check PASS. <a href="/cicd-failure-triage/">Diagram</a> · <a href="https://github.com/hanumanthvendra/ai-cicd-failure-triage" rel="noopener">Repo</a></dd>
+        </dl>
+      </article>
 
       <article class="card reveal" role="listitem">
         <h3 class="card__t">AI GitOps Release Guardian</h3>
